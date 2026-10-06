@@ -22,10 +22,10 @@ Set HOLE_VERTICES to a list of (x, y) tuples defining the hole boundary.
 Set HOLE_VERTICES = None if you don't want a hole.
 
 Rules for holes:
-  1. The hole must be fully inside the outer polygon.
-  2. The hole must not touch the outer boundary.
-  3. Only ONE hole is supported reliably by pode.
-     (Multiple holes produce incorrect area splits — library limitation.)
+  1. A hole may cross the outer boundary (it is subtracted as a notch),
+     but it must not split the polygon into disconnected pieces.
+  2. Holes must not touch each other.
+  3. Multiple holes are allowed: HOLE_VERTICES is a list of holes.
   4. Winding order of the hole does not matter — pode handles it.
 
 The area that pode works with = outer polygon area - hole area.
@@ -71,19 +71,22 @@ N_SIDES = 8          # number of sides  (3=triangle, 6=hex, 8=oct, 12=dodec …)
 RADIUS  = 31800.0        # radius from centre to each corner (any positive number)
 
 # --- Hole (optional) ---
-# List of (x, y) tuples tracing the hole boundary — counter-clockwise or
-# clockwise, pode accepts both.
+# A LIST of holes; each hole is a list of (x, y) tuples tracing its boundary —
+# counter-clockwise or clockwise, pode accepts both.
 # Set to None if you do not want a hole.
 #
 # Example — small square hole in the centre of an octagon (r=5):
-#   HOLE_VERTICES = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+#   HOLE_VERTICES = [[(-1, -1), (1, -1), (1, 1), (-1, 1)]]
 #
 # Example — off-centre rectangular hole:
-#   HOLE_VERTICES = [(1, 1), (3, 1), (3, 3), (1, 3)]
+#   HOLE_VERTICES = [[(1, 1), (3, 1), (3, 3), (1, 3)]]   # add more lists for more holes
 #
-# Rule: all hole points must lie strictly inside the outer polygon.
-HOLE_VERTICES = [(-15000, -15000), (15000, -15000), (15000, 15000), (-15000, 15000)]
-
+# A hole may stick out past the outer boundary; the overlap is cut away.
+HOLE_VERTICES = [
+    [(-20000, -10000), (-5000, -10000), (-5000, 10000), (-20000, 10000)],  # inside
+    [(20000, -8000), (40000, -8000), (40000, 8000), (20000, 8000)],        # crosses boundary
+]
+#HOLE_VERTICES = None
 # --- Partitions ---
 # One weight per partition.  Raw numbers — normalised to % automatically.
 # [1, 1, 1]      → equal thirds  (33.3% each)
@@ -91,7 +94,7 @@ HOLE_VERTICES = [(-15000, -15000), (15000, -15000), (15000, 15000), (-15000, 150
 # [1, 2, 3, 4]   → 10% / 20% / 30% / 40%
 WEIGHTS = []
 ANCHOR_XY = []
-z = 25
+z = 4
 for i in range(1,z):
     WEIGHTS.append(i)
     ANCHOR_XY.append(None)
@@ -121,8 +124,8 @@ def validate():
         (f"ANCHOR_XY length ({len(ANCHOR_XY)}) must match "
          f"WEIGHTS length ({len(WEIGHTS)})")
     if HOLE_VERTICES is not None:
-        assert len(HOLE_VERTICES) >= 3, \
-            "HOLE_VERTICES must have at least 3 points"
+        assert all(len(h) >= 3 for h in HOLE_VERTICES), \
+            "each hole in HOLE_VERTICES must have at least 3 points"
 
 
 # ===========================================================================
@@ -142,7 +145,7 @@ def make_polygon(n, r, hole_vertices=None):
     ----------
     n              : int   — number of sides
     r              : float — radius to each corner
-    hole_vertices  : list of (x, y) tuples or None
+    hole_vertices  : list of holes (each a list of (x, y) tuples) or None
 
     How holes work internally
     -------------------------
@@ -162,9 +165,14 @@ def make_polygon(n, r, hole_vertices=None):
     if hole_vertices is None:
         return Polygon(outer_contour)
 
-    hole_pts     = [Point(x, y) for x, y in hole_vertices]
-    hole_contour = Contour(hole_pts)
-    return Polygon(outer_contour, holes=[hole_contour])
+    # gon's boolean difference handles all cases: holes fully inside stay
+    # holes; holes crossing the boundary become notches in the border.
+    result = Polygon(outer_contour)
+    for h in hole_vertices:
+        result = result - Polygon(Contour([Point(x, y) for x, y in h]))
+    assert isinstance(result, Polygon), \
+        "holes split the polygon into several pieces — pode needs one polygon"
+    return result
 
 
 def build_requirements(weights, anchor_xy_list):
@@ -190,7 +198,7 @@ def contour_to_xy(contour):
     return [(float(v.x), float(v.y)) for v in contour.vertices]
 
 
-def make_donut_path(outer_xy, hole_xy):
+def make_donut_path(outer_xy, holes_xy):
     """
     Build a matplotlib Path that fills the outer polygon but
     leaves the hole empty (even-odd fill rule).
@@ -198,7 +206,7 @@ def make_donut_path(outer_xy, hole_xy):
     Parameters
     ----------
     outer_xy : list of (x, y) — outer boundary vertices
-    hole_xy  : list of (x, y) — hole boundary vertices
+    holes_xy : list of hole vertex lists
 
     Returns
     -------
@@ -209,11 +217,11 @@ def make_donut_path(outer_xy, hole_xy):
                 + [Path.LINETO] * (len(verts) - 1)
                 + [Path.CLOSEPOLY])
 
-    outer_closed = outer_xy + [outer_xy[0]]
-    hole_closed  = hole_xy  + [hole_xy[0]]
-
-    all_verts = outer_closed + hole_closed
-    all_codes = ring_codes(outer_closed) + ring_codes(hole_closed)
+    all_verts, all_codes = [], []
+    for ring in [outer_xy] + list(holes_xy):
+        closed = ring + [ring[0]]
+        all_verts += closed
+        all_codes += ring_codes(ring)
     return Path(all_verts, all_codes)
 
 
@@ -225,7 +233,7 @@ def visualize(polygon, parts, elapsed_s, anchor_xy_list, hole_vertices):
     fig, ax = plt.subplots(figsize=(8, 7))
     total_area   = float(polygon.area)
     anchor_count = sum(1 for a in anchor_xy_list if a is not None)
-    hole_str     = f"1 hole" if hole_vertices else "no hole"
+    hole_str     = f"{len(hole_vertices)} hole(s)" if hole_vertices else "no hole"
 
     ax.set_title(
         f"{N_SIDES}-sided polygon  |  r = {RADIUS}  |  {hole_str}  |  "
@@ -248,13 +256,10 @@ def visualize(polygon, parts, elapsed_s, anchor_xy_list, hole_vertices):
         part_holes = list(part.holes)
         if part_holes:
             # draw with hole cut out
-            for h in part_holes:
-                h_xy  = contour_to_xy(h)
-                path  = make_donut_path(xy, h_xy)
-                patch = PathPatch(path,
-                                  facecolor=color, edgecolor='black',
-                                  linewidth=1.2, alpha=0.55)
-                ax.add_patch(patch)
+            path = make_donut_path(xy, [contour_to_xy(h) for h in part_holes])
+            ax.add_patch(PathPatch(path,
+                                   facecolor=color, edgecolor='black',
+                                   linewidth=1.2, alpha=0.55))
         else:
             ax.add_collection(PatchCollection(
                 [MplPoly(xy, closed=True)],
@@ -302,10 +307,10 @@ def visualize(polygon, parts, elapsed_s, anchor_xy_list, hole_vertices):
 
     # --- draw hole border (dashed) ---
     if hole_vertices:
-        hxs = [p[0] for p in hole_vertices] + [hole_vertices[0][0]]
-        hys = [p[1] for p in hole_vertices] + [hole_vertices[0][1]]
-        ax.plot(hxs, hys, 'k--', linewidth=1.5, zorder=5,
-                label='Hole boundary')
+        for h in hole_vertices:
+            hxs = [p[0] for p in h] + [h[0][0]]
+            hys = [p[1] for p in h] + [h[0][1]]
+            ax.plot(hxs, hys, 'k--', linewidth=1.5, zorder=5)
         legend_handles.append(
             mlines.Line2D([0], [0], color='black', linestyle='--',
                           linewidth=1.5, label='Hole boundary')
@@ -346,7 +351,7 @@ def main():
     print("=" * 52)
     print(f"  Polygon  : {N_SIDES} sides,  radius = {RADIUS}")
     if HOLE_VERTICES:
-        print(f"  Hole     : {len(HOLE_VERTICES)} vertices")
+        print(f"  Holes    : {len(HOLE_VERTICES)}")
     else:
         print(f"  Hole     : none")
     print(f"  Parts    : {n_parts}")
