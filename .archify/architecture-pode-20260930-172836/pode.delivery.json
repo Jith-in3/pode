@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "31192cca-9480-406f-aa1d-759017e9215e",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/home/robotics/claude_ws/pode/.archify/architecture-pode-20260930-172836/candidate.json",
+  "output": "/home/robotics/claude_ws/pode/.archify/architecture-pode-20260930-172836/pode.html",
+  "specification": {
+    "sha256": "6fcb97603d9d897d62a058025bef8c5e3d91ddf1f13535a4ead7f9f6ceaa34e1",
+    "bytes": 3957
+  },
+  "artifact": {
+    "sha256": "d4fdf8b74ad169b07a43bec30a984ed0bb4a07d0e85e26ec7f34466f6351f037",
+    "bytes": 762719
+  }
+}

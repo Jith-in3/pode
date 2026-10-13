@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "pode Polygon Division Library",
+    "output": ".archify/architecture-pode-20260930-172836/pode.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/GeorgySk/pode.git",
+      "provider": "github",
+      "revision": "689985442936b6e6fe84ad702c97705b2bcb323b"
+    }
+  },
+  "components": [
+    { "id": "caller", "type": "external", "label": "Library User", "sublabel": "divide(polygon, requirements)", "pos": [40, 200], "size": [150, 64],
+      "sources": [{ "path": "pode/__init__.py", "line": 4, "end_line": 9 }] },
+    { "id": "divide", "type": "backend", "label": "divide()", "sublabel": "validates, then sweeps graph", "pos": [330, 200], "size": [150, 64],
+      "sources": [{ "path": "pode/pode.py", "line": 280, "end_line": 391 }] },
+    { "id": "assign", "type": "backend", "label": "assign_requirements()", "sublabel": "sites to current polygon", "pos": [330, 50], "size": [150, 64],
+      "sources": [{ "path": "pode/pode.py", "line": 407, "end_line": 454 }] },
+    { "id": "to-graph", "type": "backend", "label": "to_graph()", "sublabel": "region-adjacency graph", "pos": [330, 350], "size": [150, 64],
+      "sources": [{ "path": "pode/pode.py", "line": 660, "end_line": 708 }] },
+    { "id": "divisor", "type": "backend", "label": "Convex divisor", "sublabel": "pluggable ConvexDivisorType", "pos": [330, 500], "size": [150, 64], "tag": "joined_... optional",
+      "sources": [{ "path": "pode/hints.py", "line": 12, "end_line": 19 }, { "path": "pode/utils.py", "line": 177, "end_line": 216 }] },
+    { "id": "gon", "type": "external", "label": "gon / ground", "sublabel": "Triangulation, geometry", "pos": [40, 500], "size": [150, 64],
+      "sources": [{ "path": "pode/pode.py", "line": 20, "end_line": 31 }] },
+    { "id": "graph", "type": "database", "label": "Graph", "sublabel": "nx.DiGraph of polygons", "pos": [630, 350], "size": [150, 64],
+      "sources": [{ "path": "pode/pode.py", "line": 68, "end_line": 277 }] },
+    { "id": "split", "type": "backend", "label": "split()", "sublabel": "2 or 3 parts of a polygon", "pos": [630, 200], "size": [150, 64],
+      "sources": [{ "path": "pode/pode.py", "line": 457, "end_line": 623 }] },
+    { "id": "splitter", "type": "backend", "label": "splitter_point()", "sublabel": "cut point for area", "pos": [920, 200], "size": [150, 64],
+      "sources": [{ "path": "pode/utils.py", "line": 117, "end_line": 170 }, { "path": "pode/pode.py", "line": 521 }] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "pode package", "wraps": ["divide", "assign", "to-graph", "divisor", "graph", "split", "splitter"] }
+  ],
+  "connections": [
+    { "id": "caller-divide", "from": "caller", "to": "divide", "label": "call", "variant": "emphasis" },
+    { "id": "divide-assign", "from": "divide", "to": "assign", "label": "per polygon" },
+    { "id": "divide-to-graph", "from": "divide", "to": "to-graph", "label": "build graph" },
+    { "id": "to-graph-divisor", "from": "to-graph", "to": "divisor", "label": "convex parts", "variant": "dashed" },
+    { "id": "divisor-gon", "from": "divisor", "to": "gon", "label": "Delaunay" },
+    { "id": "to-graph-graph", "from": "to-graph", "to": "graph", "label": "nodes + edges" },
+    { "id": "divide-split", "from": "divide", "to": "split", "label": "split", "variant": "emphasis" },
+    { "id": "graph-split", "from": "graph", "to": "split", "label": "adjacency" },
+    { "id": "split-splitter", "from": "split", "to": "splitter", "label": "cut point" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Flow", "items": ["divide() validates requirements and sums to 1", "One requirement returns the polygon unchanged", "Loop pops polygons, assigns sites, then splits"] },
+    { "dot": "emerald", "title": "Divisor", "items": ["Default: Triangulation.constrained_delaunay", "Optional: joined_constrained_delaunay_triangles"] }
+  ]
+}

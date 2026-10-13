@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/robotics/claude_ws/pode/.archify/architecture-pode-20260930-172836/candidate.json",
+    "sha256": "6fcb97603d9d897d62a058025bef8c5e3d91ddf1f13535a4ead7f9f6ceaa34e1",
+    "bytes": 3957
+  },
+  "artifact": {
+    "path": "/home/robotics/claude_ws/pode/.archify/architecture-pode-20260930-172836/pode.html",
+    "sha256": "d4fdf8b74ad169b07a43bec30a984ed0bb4a07d0e85e26ec7f34466f6351f037",
+    "bytes": 762719
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/robotics/claude_ws/pode/.archify/architecture-pode-20260930-172836/pode.finalize.json",
+    "summaryReceipt": "/home/robotics/claude_ws/pode/.archify/architecture-pode-20260930-172836/pode.finalize-summary.json",
+    "browserCheckReceipt": "/home/robotics/claude_ws/pode/.archify/architecture-pode-20260930-172836/pode.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.0.1",
+    "availableVersion": "3.0.1",
+    "releaseNotes": null,
+    "checkedAt": "2026-09-30T12:02:06.715Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4066
+}
